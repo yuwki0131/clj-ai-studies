@@ -1,6 +1,6 @@
 # README #
 
-# clojureでAI
+# clojureでAI系のアルゴリズムを実装してみる
 
 ## neuralnetwork/sperceptron.clj (単純パーセプトロン)
 
