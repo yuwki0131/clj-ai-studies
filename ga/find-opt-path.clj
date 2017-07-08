@@ -1,3 +1,5 @@
+;;---------------------------------------------------------------
+;; slove traveling salesman problem & visualize the result
 (ns ai.ga
   (:require
    [clojure.core.match :only (match)]
@@ -88,9 +90,6 @@
   (math/sqrt (+ (* (- x1 x2) (- x1 x2)) (* (- y1 y2) (- y1 y2)))))
 
 (defn find-opt-path
-  "最短巡回経路の近似解を求める。
-  loop-limit: ループ上限
-  pop-size: 1世代の上限"
   [points-with-coord loop-limit pop-size]
   (let [points (sort (keys points-with-coord))
         gene-size (count points)
@@ -129,7 +128,7 @@
              (dec rest-loops))))))))
 
 ;;---------------------------------------------------------------
-;; graph plot
+;; graph plot (with processing/quil)
 
 (def ^:const base-x "origin position" 30)
 
@@ -159,14 +158,12 @@
 
 (defn draw-arrow-head
   "draw arrow head '▶'"
-  [xy1 xy2 top-mergin bot-mergin]
-  (let [x1 (first xy1) x2 (first xy2)
-        y1 (second xy1) y2 (second xy2)
-        size (+ 25 (- bot-mergin))]
+  [[x y :as xy] [x' y' :as xy'] top-mergin bot-mergin]
+  (let [size (+ 25 (- bot-mergin))]
     (set-white)
     (q/push-matrix)
-    (q/translate x1 y1)
-    (q/rotate (+ (q/radians 270) (q/atan2 (- y2 y1) (- x2 x1))))
+    (q/translate x y)
+    (q/rotate (+ (q/radians 270) (q/atan2 (- y' y) (- x' x))))
     (q/triangle 0 top-mergin 5 size -5 size)
     (q/pop-matrix)))
 
@@ -179,58 +176,56 @@
     (set-blue)
     (q/text (name name-keyword) (- x 5) (+ y 5))))
 
-
-(defn draw-cc-axis
+(defn draw-ccs-axis
   "draw axis of Cartesian coordinate system"
-  [] 1)
-
+  []
+  (q/stroke-weight 2)
+  (let [x-origin base-x, y-origin (- reversed-y base-y)
+        mergin 20, font-size 20, axis-length 500
+        x-line [(- x-origin mergin) y-origin (+ x-origin axis-length) y-origin]
+        y-line [x-origin (+ y-origin mergin) x-origin (- y-origin axis-length)]]
+    (apply q/line x-line)
+    (apply q/line y-line)
+    (draw-arrow-head (drop 2 x-line) (take 2 x-line) 0 10)
+    (draw-arrow-head (drop 2 y-line) (take 2 y-line) 0 10)
+    (set-blue)
+    (q/text-size font-size)
+    (q/text "O" (+ 20 x-origin) (+ 20 y-origin))
+    (q/text "X" (+ 5 (x-line 2)) (+ (x-line 3) 7))
+    (q/text "Y" (- (y-line 2) 5) (- (y-line 3) 5))))
 
 (defn draw-route [points route]
   (let [points (zipmap (keys points) (map translate-position (vals points)))]
     (fn []
-      ;; points & lines
-      (q/background 255) ;; white background
-      (q/stroke-weight 1)
+      ;; white background
+      (q/background 255)
+
       ;; draw lines
+      (q/stroke-weight 1)
       (doall (map #(q/line (%1 points) (%2 points))
                   route (rest route)))
       (doall (map #(draw-arrow-head (%2 points) (%1 points) circle-r 0)
                   route (rest route)))
-      ;; draw points with name
+
+      ;; draw points
       (set-blue)
       ;; if this font is not in the environment, this code is ignored
       (q/text-font (q/create-font "DejaVu Sans Mono Bold" 16 true))
       (doall (map #(draw-point-with-name % points) (keys points)))
 
       ;; XY-axis
-      (q/stroke-weight 2)
-      (let [x0 base-x, y0 (- reversed-y base-y)
-            mergin 20, font-size 20, length 430
-            x-line [(- x0 mergin) y0 (+ x0 length) y0]
-            y-line [x0 (+ y0 mergin) x0 (- y0 length)]]
-        (apply q/line x-line)
-        (apply q/line y-line)
-        (draw-arrow-head (drop 2 x-line) (take 2 x-line) 0 10)
-        (draw-arrow-head (drop 2 y-line) (take 2 y-line) 0 10)
-        (set-blue)
-        (q/text-size font-size)
-        (q/text "O" (+ 20 x0) (+ 20 y0))
-        (q/text "X" (+ 5 (x-line 2)) (+ (x-line 3) 7)) ;; suitably
-        (q/text "Y" (- (y-line 2) 5) (- (y-line 3) 5))))))
+      (draw-ccs-axis))))
 
 (defn plot-route [sample-points route]
   (q/defsketch skt1
     :title "routes"
-    :setup (fn [] (q/frame-rate 30) (q/smooth)) ;; anti-aliased
+    :setup (fn [] (q/frame-rate 30) (q/smooth)) ;; anti-alias
     :draw (draw-route sample-points route)
     :size [600 600]))
 
 ;;---------------------------------------------------------------
-;; execution example
-;; (find-opt-path sample-points 100 50)
-;; (plot-graph sample-points (find-opt-path sample-points-coord 200 200))
+;; generate sample points
 
-;;---------------------------------------------------------------
 (defn get-euc-distance [[x y] [x' y']]
   (math/sqrt (+ (math/expt (- x x') 2) (math/expt (- y y') 2))))
 
@@ -245,7 +240,10 @@
               [(conj point-set point) (assoc points-with-name name point)]))]
     (second (reduce generate-points-with [{} {}] point-names))))
 
-(defn do-inst []
+;;---------------------------------------------------------------
+;; example
+
+(defn execute-example []
   (let [points (ai.ga/generate-random-points [:a :b :c :d :e :f :g :h] 10 100 100)]
     (println points)
     (plot-route points (find-opt-path points 200 200))))
