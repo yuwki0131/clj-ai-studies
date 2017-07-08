@@ -5,12 +5,15 @@
    [quil.core :as q]))
 
 ;;---------------------------------------------------------------
-;; find opt path
+;; find opt path (traveling-salesman-problem slover)
+;; from (J.J.Grefenstette, B.Gopal, B.J.Rosmaita, D.V.Gucht,
+;; Genetic Algorithms for the Traveling Salesman Problem
+;; Proceedings of the 1st International Conference on Genetic Algorithms, 1985)
 
 ;;----------------------------
 ;; Grefenstette encoding/decoding
 (defn symbolic->grefnum
-  "grefenstetteらによる Symbols->Numbersの変換"
+  "symbols->numbers(genetic code)"
   [points given-route]
   (loop [s [] c points p given-route]
     (if (empty? c) (reverse s)
@@ -21,7 +24,7 @@
            (rest p))))))
 
 (defn grefnum->symbolic
-  "symbolic->grefnumの逆変換 Numbers->Symbolsの変換"
+  "numbers(genetic code)->symbols"
   [points encoded-route]
   (loop [decoded-route [] c points e encoded-route]
     (if (empty? e) (reverse decoded-route)
@@ -49,7 +52,6 @@
 ;;----------------------------
 ;; crossover
 (defn one-point
-  "一点交叉"
   [at genes]
   (let [a (split-at at (first genes))
         b (split-at at (second genes))]
@@ -229,10 +231,6 @@
 ;; (plot-graph sample-points (find-opt-path sample-points-coord 200 200))
 
 ;;---------------------------------------------------------------
-(def sample-points-with-coord
-  {:a [10 100] :b [30 20] :c [80 60] :d [60 100] :e [70 10]
-   :f [5 100] :g [80 80] :h [30 30] :i [110 20] :j [0 120]})
-
 (defn get-euc-distance [[x y] [x' y']]
   (math/sqrt (+ (math/expt (- x x') 2) (math/expt (- y y') 2))))
 
