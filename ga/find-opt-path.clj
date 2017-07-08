@@ -1,10 +1,8 @@
-(use '[clojure.core.match :only (match)]
-     '[clojure.math.numeric-tower :as math])
-
-;;---------------------------------------------------------------
-(def sample-points-with-coord
-  {:a [10 100] :b [30 20] :c [80 60] :d [60 100] :e [70 10]
-   :f [5 100] :g [80 80] :h [30 30] :i [110 20] :j [0 120]})
+(ns ai.ga
+  (:require
+   [clojure.core.match :only (match)]
+   [clojure.math.numeric-tower :as math]
+   [quil.core :as q]))
 
 ;;---------------------------------------------------------------
 ;; find opt path
@@ -46,14 +44,12 @@
 
 (defn selection
   [scored-population]
-  (prof
-   :selection
-   (doall
-    (tournament-selection scored-population))))
+  (tournament-selection scored-population))
 
 ;;----------------------------
 ;; crossover
 (defn one-point
+  "一点交叉"
   [at genes]
   (let [a (split-at at (first genes))
         b (split-at at (second genes))]
@@ -61,12 +57,10 @@
      (concat (first b) (second a))]))
 
 (defn crossover [population gene-size]
-  (prof
-   :crossover
-   (doall
-    (->> (partition 2 population)
-         (map (partial one-point (rand-int gene-size)))
-         (reduce concat)))))
+  (doall
+   (->> (partition 2 population)
+        (map (partial one-point (rand-int gene-size)))
+        (reduce concat))))
 
 ;;----------------------------
 ;; mutation
@@ -92,6 +86,9 @@
   (math/sqrt (+ (* (- x1 x2) (- x1 x2)) (* (- y1 y2) (- y1 y2)))))
 
 (defn find-opt-path
+  "最短巡回経路の近似解を求める。
+  loop-limit: ループ上限
+  pop-size: 1世代の上限"
   [points-with-coord loop-limit pop-size]
   (let [points (sort (keys points-with-coord))
         gene-size (count points)
@@ -132,62 +129,103 @@
 ;;---------------------------------------------------------------
 ;; graph plot
 
-(import (javax.swing JFrame))
-(import (java.awt Color))
-(import (java.awt Graphics))
+(def ^:const base-x "origin position" 30)
 
-(def radius 8)
+(def ^:const base-y "origin position" 30)
 
-(defn x-extend [x]
-  (+ (* (- x radius) 3) 50))
+(def ^:const scale "scale size" 4)
 
-(defn y-extend [y]
-  (+ (- (* (- y radius) 3)) 400))
+(def ^:const circle-r "radius of circle" 13)
 
-(defn plot-graph [points-with-coord route]
-  (def frame (JFrame. "Route"))
-  (doto frame
-    (.setSize 450 450)
-    (.setVisible true)
-    (.setResizable false))
-  (Thread/sleep 100) ;; wait for the generateion of Window
+(def ^:const reversed-y "reverse for difference between Cartesian Coordinate and Gui System" 570)
 
-  (def graphics (.. frame (getGraphics)))
+(defn draw-route [points route]
+  (let [set-white #(q/fill (q/color 255))
+        set-blue #(q/fill (q/color 0 102 153))
+        trans #(list (+ (* scale (first %)) base-x) ;; to fix to real xy-axis
+                     (- reversed-y (+ (* scale (second %)) base-y)))
+        points (zipmap (keys points) (map trans (vals points)))]
+    (letfn [(drop-colon [point]
+              (apply str (rest (vec (str point)))))
+            (draw-arrow-head [xy1 xy2 top-mergin bot-mergin]
+              (let [x1 (first xy1) x2 (first xy2)
+                    y1 (second xy1) y2 (second xy2)
+                    size (+ 25 (- bot-mergin))]
+                (set-white)
+                (q/push-matrix)
+                (q/translate x1 y1)
+                (q/rotate (+ (q/radians 270) (q/atan2 (- y2 y1) (- x2 x1))))
+                (q/triangle 0 top-mergin 5 size -5 size)
+                (q/pop-matrix)))
+            (draw-point-with-name [name]
+              (let [xy (name points) x (first xy) y (second xy)]
+                (set-white)
+                (q/ellipse x y (* circle-r 2) (* circle-r 2))
+                (set-blue)
+                (q/text (drop-colon name) (- x 5) (+ y 5))))]
+      (fn []
+        ;; points & lines
+        (q/background 255) ;; white background
+        (q/stroke-weight 1)
+        ;; draw lines
+        (doall (map #(q/line (%1 points) (%2 points))
+                    route (rest route)))
+        (doall (map #(draw-arrow-head (%2 points) (%1 points) circle-r 0)
+                    route (rest route)))
+        ;; draw points with name
+        (set-blue)
+        ;; if this font is not in the environment, this code is ignored
+        (q/text-font (q/create-font "DejaVu Sans Mono Bold" 16 true))
+        (doall (map draw-point-with-name (keys points)))
 
-  (defn plot-point [name]
-    (let [coord (name points-with-coord)
-          r (* radius 2)
-          x-pos (x-extend (first  coord))
-          y-pos (y-extend (second coord))]
-      (doto graphics
-        (.setColor (Color. 255 100 100))
-        (.fillOval x-pos y-pos r r)
-        (.setColor (Color. 100 190 190))
-        (.drawOval x-pos y-pos r r)
-        (.setColor (Color. 0 0 0))
-        (.drawString (str name) x-pos (+ y-pos 25)))))
+        ;; XY-axis
+        (q/stroke-weight 2)
+        (let [x0 base-x, y0 (- reversed-y base-y)
+              mergin 20, font-size 20, length 430
+              x-line [(- x0 mergin) y0 (+ x0 length) y0]
+              y-line [x0 (+ y0 mergin) x0 (- y0 length)]]
+          (apply q/line x-line)
+          (apply q/line y-line)
+          (draw-arrow-head (drop 2 x-line) (take 2 x-line) 0 10)
+          (draw-arrow-head (drop 2 y-line) (take 2 y-line) 0 10)
+          (set-blue)
+          (q/text-size font-size)
+          (q/text "O" (+ 20 x0) (+ 20 y0))
+          (q/text "X" (+ 5 (x-line 2)) (+ (x-line 3) 7)) ;; suitably
+          (q/text "Y" (- (y-line 2) 5) (- (y-line 3) 5)))))))
 
-  (defn draw-line [point-a point-b]
-    (let [xy-a (point-a points-with-coord)
-          xy-b (point-b points-with-coord)
-          get-x #(+ radius (x-extend (first %1)))
-          get-y #(+ radius (y-extend (second %1)))]
-    (doto graphics
-      (.setColor (Color. 0 0 0))
-      (.drawLine (get-x xy-a) (get-y xy-a) (get-x xy-b) (get-y xy-b)))))
-
-  ;; draw points
-  (doall (map plot-point (keys points-with-coord)))
-
-  ;; draw route
-  (doall (map draw-line route (cons (last route) (drop-last route))))
-  (println "done!"))
+(defn plot-route [sample-points route]
+  (q/defsketch skt1
+    :title "routes"
+    :setup (fn [] (q/frame-rate 30) (q/smooth)) ;; anti-aliased
+    :draw (draw-route sample-points route)
+    :size [600 600]))
 
 ;;---------------------------------------------------------------
 ;; execution example
 ;; (find-opt-path sample-points 100 50)
 ;; (plot-graph sample-points (find-opt-path sample-points-coord 200 200))
+
+;;---------------------------------------------------------------
+(def sample-points-with-coord
+  {:a [10 100] :b [30 20] :c [80 60] :d [60 100] :e [70 10]
+   :f [5 100] :g [80 80] :h [30 30] :i [110 20] :j [0 120]})
+
+(defn get-euc-distance [[x y] [x' y']]
+  (math/sqrt (+ (math/expt (- x x') 2) (math/expt (- y y') 2))))
+
+(defn get-random-point [other-points min-distance max-x max-y]
+  (letfn [(in-min-distance? [xy xy'] (< (get-euc-distance xy xy') min-distance ))
+          (not-too-close? [xy] (empty? (filter #(in-min-distance? xy %) other-points)))]
+    (first (filter not-too-close? (repeatedly (fn [] [(rand-int max-x) (rand-int max-y)]))))))
+
+(defn generate-random-points [point-names min-distance max-x max-y]
+  (letfn [(generate-points-with [[point-set points-with-name] name]
+            (let [point (get-random-point point-set min-distance max-x max-y)]
+              [(conj point-set point) (assoc points-with-name name point)]))]
+    (second (reduce generate-points-with [{} {}] point-names))))
+
 (defn do-inst []
-  (plot-graph sample-points-with-coord
-              (find-opt-path sample-points-with-coord 200 200))
-  (print-exec-time))
+  (let [points (ai.ga/generate-random-points [:a :b :c :d :e :f :g :h] 10 100 100)]
+    (println points)
+    (plot-route points (find-opt-path points 200 200))))
