@@ -59,4 +59,4 @@ user=> (ai.ga/execute-example)
 ```
 
 ### 実行結果例
-<img src="img/tsp_result1.png" width="320" hspace="10"><img src="img/tsp_result.png" width="320" hspace="10">
+<img src="img/tsp_result1.png" width="320" hspace="10"><img src="img/tsp_result2.png" width="320" hspace="10">
