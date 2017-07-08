@@ -1,6 +1,8 @@
-(require '[incanter.core :as in]
-         '[incanter.stats :as st]
-         '[incanter.charts :as ch])
+(ns ai.neuralnetwork
+  (:require
+   [incanter.core :as in]
+   [incanter.stats :as st]
+   [incanter.charts :as ch]))
 
 (defn inner-product
   "xsとysの内積"
@@ -86,16 +88,16 @@
     (map vector (generate-by x) (generate-by y))))
 
 ;; 以下のパラメータを弄る
-(sperceptron [(generate-sample-cluster 1 0 2 100)
-              (generate-sample-cluster 10 9 2 100)])
+;; (ai.neuralnetwork/sperceptron [(generate-sample-cluster 1 0 2 100)
+;;                                (generate-sample-cluster 10 9 2 100)])
 
 ;; 学習に成功する例
-;; (sperceptron [(generate-sample-cluster -4 -2 2 100)
-;;               (generate-sample-cluster 10 9 2 100)])
+;; (ai.neuralnetwork/sperceptron [(generate-sample-cluster -4 -2 2 100)
+;;                                (generate-sample-cluster 10 9 2 100)])
 
 ;; 学習に失敗する例
-;; (sperceptron [(generate-sample-cluster 4 2 2 100)
-;;               (generate-sample-cluster 8 7 2 100)])
+;; (ai.neuralnetwork/sperceptron [(generate-sample-cluster 4 2 2 100)
+;;                                (generate-sample-cluster 8 7 2 100)])
 
 ;; 参考
 ;; 学習後の関数: f(xs) = (ws . xs) + bias
