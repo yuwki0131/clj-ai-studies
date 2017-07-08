@@ -137,62 +137,84 @@
 
 (def ^:const circle-r "radius of circle" 13)
 
-(def ^:const reversed-y "reverse for difference between Cartesian Coordinate and Gui System" 570)
+(def ^:const reversed-y "reverse for difference between Cartesian coordinate system and Gui System" 570)
+
+(defn set-white
+  "fill white"
+  []
+  (q/fill (q/color 255)))
+
+(defn set-blue
+  "fill blue"
+  []
+  (q/fill (q/color 0 102 153)))
+
+(defn translate-position
+  "translate position from Cartesian coordinate system to Gui System"
+  [[x y]]
+  [(+ (* scale x) base-x)
+   (- reversed-y (+ (* scale y) base-y))])
+
+(defn draw-arrow-head
+  "draw arrow head '▶'"
+  [xy1 xy2 top-mergin bot-mergin]
+  (let [x1 (first xy1) x2 (first xy2)
+        y1 (second xy1) y2 (second xy2)
+        size (+ 25 (- bot-mergin))]
+    (set-white)
+    (q/push-matrix)
+    (q/translate x1 y1)
+    (q/rotate (+ (q/radians 270) (q/atan2 (- y2 y1) (- x2 x1))))
+    (q/triangle 0 top-mergin 5 size -5 size)
+    (q/pop-matrix)))
+
+(defn draw-point-with-name
+  "draw point circle with name"
+  [name-keyword points]
+  (let [xy (name-keyword points) x (first xy) y (second xy)]
+    (set-white)
+    (q/ellipse x y (* circle-r 2) (* circle-r 2))
+    (set-blue)
+    (q/text (name name-keyword) (- x 5) (+ y 5))))
+
+
+(defn draw-cc-axis
+  "draw axis of Cartesian coordinate system"
+  [] 1)
+
 
 (defn draw-route [points route]
-  (let [set-white #(q/fill (q/color 255))
-        set-blue #(q/fill (q/color 0 102 153))
-        trans #(list (+ (* scale (first %)) base-x) ;; to fix to real xy-axis
-                     (- reversed-y (+ (* scale (second %)) base-y)))
-        points (zipmap (keys points) (map trans (vals points)))]
-    (letfn [(drop-colon [point]
-              (apply str (rest (vec (str point)))))
-            (draw-arrow-head [xy1 xy2 top-mergin bot-mergin]
-              (let [x1 (first xy1) x2 (first xy2)
-                    y1 (second xy1) y2 (second xy2)
-                    size (+ 25 (- bot-mergin))]
-                (set-white)
-                (q/push-matrix)
-                (q/translate x1 y1)
-                (q/rotate (+ (q/radians 270) (q/atan2 (- y2 y1) (- x2 x1))))
-                (q/triangle 0 top-mergin 5 size -5 size)
-                (q/pop-matrix)))
-            (draw-point-with-name [name]
-              (let [xy (name points) x (first xy) y (second xy)]
-                (set-white)
-                (q/ellipse x y (* circle-r 2) (* circle-r 2))
-                (set-blue)
-                (q/text (drop-colon name) (- x 5) (+ y 5))))]
-      (fn []
-        ;; points & lines
-        (q/background 255) ;; white background
-        (q/stroke-weight 1)
-        ;; draw lines
-        (doall (map #(q/line (%1 points) (%2 points))
-                    route (rest route)))
-        (doall (map #(draw-arrow-head (%2 points) (%1 points) circle-r 0)
-                    route (rest route)))
-        ;; draw points with name
-        (set-blue)
-        ;; if this font is not in the environment, this code is ignored
-        (q/text-font (q/create-font "DejaVu Sans Mono Bold" 16 true))
-        (doall (map draw-point-with-name (keys points)))
+  (let [points (zipmap (keys points) (map translate-position (vals points)))]
+    (fn []
+      ;; points & lines
+      (q/background 255) ;; white background
+      (q/stroke-weight 1)
+      ;; draw lines
+      (doall (map #(q/line (%1 points) (%2 points))
+                  route (rest route)))
+      (doall (map #(draw-arrow-head (%2 points) (%1 points) circle-r 0)
+                  route (rest route)))
+      ;; draw points with name
+      (set-blue)
+      ;; if this font is not in the environment, this code is ignored
+      (q/text-font (q/create-font "DejaVu Sans Mono Bold" 16 true))
+      (doall (map #(draw-point-with-name % points) (keys points)))
 
-        ;; XY-axis
-        (q/stroke-weight 2)
-        (let [x0 base-x, y0 (- reversed-y base-y)
-              mergin 20, font-size 20, length 430
-              x-line [(- x0 mergin) y0 (+ x0 length) y0]
-              y-line [x0 (+ y0 mergin) x0 (- y0 length)]]
-          (apply q/line x-line)
-          (apply q/line y-line)
-          (draw-arrow-head (drop 2 x-line) (take 2 x-line) 0 10)
-          (draw-arrow-head (drop 2 y-line) (take 2 y-line) 0 10)
-          (set-blue)
-          (q/text-size font-size)
-          (q/text "O" (+ 20 x0) (+ 20 y0))
-          (q/text "X" (+ 5 (x-line 2)) (+ (x-line 3) 7)) ;; suitably
-          (q/text "Y" (- (y-line 2) 5) (- (y-line 3) 5)))))))
+      ;; XY-axis
+      (q/stroke-weight 2)
+      (let [x0 base-x, y0 (- reversed-y base-y)
+            mergin 20, font-size 20, length 430
+            x-line [(- x0 mergin) y0 (+ x0 length) y0]
+            y-line [x0 (+ y0 mergin) x0 (- y0 length)]]
+        (apply q/line x-line)
+        (apply q/line y-line)
+        (draw-arrow-head (drop 2 x-line) (take 2 x-line) 0 10)
+        (draw-arrow-head (drop 2 y-line) (take 2 y-line) 0 10)
+        (set-blue)
+        (q/text-size font-size)
+        (q/text "O" (+ 20 x0) (+ 20 y0))
+        (q/text "X" (+ 5 (x-line 2)) (+ (x-line 3) 7)) ;; suitably
+        (q/text "Y" (- (y-line 2) 5) (- (y-line 3) 5))))))
 
 (defn plot-route [sample-points route]
   (q/defsketch skt1
